@@ -88,4 +88,22 @@ class SagaOrchestratorServiceTest {
         assertEquals(new BigDecimal("500.00"), walletService.getBalance("9000000005"));
         assertEquals(new BigDecimal("300.00"), walletService.getBalance("9000000006"));
     }
+
+    @Test
+    void shouldCompensateWhenBillerFails() {
+        sagaOrchestratorService.addMoney("9000000011", new BigDecimal("400"));
+        Transaction tx = sagaOrchestratorService.payElectricityBill("9000000011", "FAIL-BILLER", "CN-1", new BigDecimal("120"));
+
+        assertEquals(TransactionStatus.COMPENSATED, tx.getStatus());
+        assertEquals(new BigDecimal("400.00"), walletService.getBalance("9000000011"));
+    }
+
+    @Test
+    void shouldCompensateWhenRechargeFails() {
+        sagaOrchestratorService.addMoney("9000000012", new BigDecimal("300"));
+        Transaction tx = sagaOrchestratorService.rechargeMobile("9000000012", "FAIL-RECHARGE", "7000000100", new BigDecimal("50"));
+
+        assertEquals(TransactionStatus.COMPENSATED, tx.getStatus());
+        assertEquals(new BigDecimal("300.00"), walletService.getBalance("9000000012"));
+    }
 }

@@ -92,7 +92,19 @@ class ApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"phone\":\"\",\"amount\":0}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    void shouldReturnBadRequestForInsufficientBalance() throws Exception {
+        mockMvc.perform(post("/api/v1/payments/send-money")
+                        .with(httpBasic("user", "user123"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fromPhone\":\"9000000090\",\"toPhone\":\"9000000091\",\"amount\":50}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("INSUFFICIENT_BALANCE"));
     }
 
     @Test
@@ -121,7 +133,8 @@ class ApiIntegrationTest {
     void shouldReturnBadRequestForUnknownTransaction() throws Exception {
         mockMvc.perform(get("/api/v1/payments/transactions/TXN-NOT-FOUND")
                         .with(httpBasic("user", "user123")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("RESOURCE_NOT_FOUND"));
     }
 }

@@ -1,16 +1,20 @@
 # Payment Gateway (Java 8, Spring Boot)
 
-This implementation provides a clean 3-service style payment gateway with:
+This implementation provides a 3-service style payment gateway with:
 - Saga orchestration for payment flows
 - Circuit breaker fallback for external calls
 - Spring Security basic auth
-- Global exception handling
+- Global exception handling with error codes
 - Generic API response model (`ApiResponse<T>`)
 - MySQL persistence for wallets, transactions, and receipts
 - Optional S3 receipt upload
 
-Architecture one-pager:
+Architecture and planning docs:
 - `docs/PaymentGateway-HLD-LLD.md`
+- `docs/Phase-Wise-Roadmap.md`
+- `docs/Coding-Standards.md`
+- `docs/Complexity-Notes.md`
+- `docs/PaymentGateway-Run-Manual.md`
 
 ## Runtime DB (MySQL)
 Default runtime config in `src/main/resources/application.yml`:
@@ -50,12 +54,13 @@ JaCoCo HTML report:
 
 ## Postman collection
 - File: `postman/Payment-Gateway.postman_collection.json`
+- Environment: `postman/Payment-Gateway.postman_environment.json`
 - Folders included:
   - Happy Flows
   - Fallback Flows (compensation)
   - Validation and Auth
 
-Import the collection and run requests in order for best flow verification.
+Import the collection and environment, then run requests in order for best flow verification.
 
 ## Quick Postman Flows
 1. Add money
@@ -73,3 +78,24 @@ Import the collection and run requests in order for best flow verification.
    - `POST /api/v1/payments/recharge`
 
 Use `merchantId` or `provider` containing `FAIL` to validate fallback + Saga compensation.
+
+## Branch workflow (industry)
+1. Create feature branch from main
+```powershell
+git checkout main
+git pull origin main
+git checkout -b feature/<scope>-<name>
+```
+2. Commit and push
+```powershell
+git add .
+git commit -m "feat: <change summary>"
+git push -u origin feature/<scope>-<name>
+```
+3. Open PR to `main` and merge only after CI green.
+
+## CI quality gate
+- GitHub Actions workflow: `.github/workflows/ci.yml`
+- Enforced in build:
+  - JaCoCo LINE >= 0.65
+  - JaCoCo BRANCH >= 0.30

@@ -1,6 +1,7 @@
 package org.example.controller;
 
 import org.example.api.ApiResponse;
+import org.example.api.ErrorCode;
 import org.example.dto.BillPaymentRequest;
 import org.example.dto.MerchantPaymentRequest;
 import org.example.dto.RechargeRequest;
@@ -74,7 +75,7 @@ public class PaymentController {
     public ApiResponse<Transaction> transaction(@PathVariable("transactionId") String transactionId) {
         Transaction transaction = sagaOrchestratorService.getTransaction(transactionId);
         if (transaction == null) {
-            throw new BusinessException("Transaction not found");
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Transaction not found");
         }
         return ApiResponse.success("Transaction fetched", transaction);
     }
