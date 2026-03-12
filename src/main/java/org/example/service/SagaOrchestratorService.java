@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 @Service
 public class SagaOrchestratorService {
@@ -55,56 +56,38 @@ public class SagaOrchestratorService {
 
     @Transactional
     public Transaction payMerchant(String fromPhone, String merchantId, BigDecimal amount) {
-        walletService.debit(fromPhone, amount);
-        ExternalOperationResult operation;
-        try {
-            operation = merchantService.payMerchant(merchantId, amount);
-        } catch (Exception ex) {
-            operation = new ExternalOperationResult(false, null, "Merchant service failed: " + ex.getMessage());
-        }
-        if (!operation.isSuccess()) {
-            walletService.credit(fromPhone, amount);
-            return persist(PaymentType.MERCHANT_PAYMENT, TransactionStatus.COMPENSATED, amount, fromPhone, merchantId, operation.getMessage(), null);
-        }
-        String receiptKey = createReceiptKey(fromPhone);
-        receiptStorageService.store(receiptKey, buildReceiptContent(fromPhone, amount, operation.getReference()));
-        return persist(PaymentType.MERCHANT_PAYMENT, TransactionStatus.SUCCESS, amount, fromPhone, merchantId, operation.getMessage(), receiptKey);
+        return processExternalFlow(
+                PaymentType.MERCHANT_PAYMENT,
+                fromPhone,
+                merchantId,
+                amount,
+                () -> merchantService.payMerchant(merchantId, amount),
+                "Merchant service failed"
+        );
     }
 
     @Transactional
     public Transaction payElectricityBill(String fromPhone, String provider, String consumerNumber, BigDecimal amount) {
-        walletService.debit(fromPhone, amount);
-        ExternalOperationResult operation;
-        try {
-            operation = billerService.payBill(provider, consumerNumber, amount);
-        } catch (Exception ex) {
-            operation = new ExternalOperationResult(false, null, "Biller service failed: " + ex.getMessage());
-        }
-        if (!operation.isSuccess()) {
-            walletService.credit(fromPhone, amount);
-            return persist(PaymentType.ELECTRICITY_BILL, TransactionStatus.COMPENSATED, amount, fromPhone, consumerNumber, operation.getMessage(), null);
-        }
-        String receiptKey = createReceiptKey(fromPhone);
-        receiptStorageService.store(receiptKey, buildReceiptContent(fromPhone, amount, operation.getReference()));
-        return persist(PaymentType.ELECTRICITY_BILL, TransactionStatus.SUCCESS, amount, fromPhone, consumerNumber, operation.getMessage(), receiptKey);
+        return processExternalFlow(
+                PaymentType.ELECTRICITY_BILL,
+                fromPhone,
+                consumerNumber,
+                amount,
+                () -> billerService.payBill(provider, consumerNumber, amount),
+                "Biller service failed"
+        );
     }
 
     @Transactional
     public Transaction rechargeMobile(String fromPhone, String operatorName, String mobileNumber, BigDecimal amount) {
-        walletService.debit(fromPhone, amount);
-        ExternalOperationResult operation;
-        try {
-            operation = billerService.recharge(operatorName, mobileNumber, amount);
-        } catch (Exception ex) {
-            operation = new ExternalOperationResult(false, null, "Recharge service failed: " + ex.getMessage());
-        }
-        if (!operation.isSuccess()) {
-            walletService.credit(fromPhone, amount);
-            return persist(PaymentType.MOBILE_RECHARGE, TransactionStatus.COMPENSATED, amount, fromPhone, mobileNumber, operation.getMessage(), null);
-        }
-        String receiptKey = createReceiptKey(fromPhone);
-        receiptStorageService.store(receiptKey, buildReceiptContent(fromPhone, amount, operation.getReference()));
-        return persist(PaymentType.MOBILE_RECHARGE, TransactionStatus.SUCCESS, amount, fromPhone, mobileNumber, operation.getMessage(), receiptKey);
+        return processExternalFlow(
+                PaymentType.MOBILE_RECHARGE,
+                fromPhone,
+                mobileNumber,
+                amount,
+                () -> billerService.recharge(operatorName, mobileNumber, amount),
+                "Recharge service failed"
+        );
     }
 
     @Transactional(readOnly = true)
@@ -112,6 +95,33 @@ public class SagaOrchestratorService {
         return transactionRepository.findById(transactionId)
                 .map(this::toDomain)
                 .orElse(null);
+    }
+
+    private Transaction processExternalFlow(PaymentType paymentType,
+                                            String fromPhone,
+                                            String targetReference,
+                                            BigDecimal amount,
+                                            Supplier<ExternalOperationResult> externalCall,
+                                            String failurePrefix) {
+        walletService.debit(fromPhone, amount);
+
+        ExternalOperationResult operation = safelyInvoke(externalCall, failurePrefix);
+        if (!operation.isSuccess()) {
+            walletService.credit(fromPhone, amount);
+            return persist(paymentType, TransactionStatus.COMPENSATED, amount, fromPhone, targetReference, operation.getMessage(), null);
+        }
+
+        String receiptKey = createReceiptKey(fromPhone);
+        receiptStorageService.store(receiptKey, buildReceiptContent(fromPhone, amount, operation.getReference()));
+        return persist(paymentType, TransactionStatus.SUCCESS, amount, fromPhone, targetReference, operation.getMessage(), receiptKey);
+    }
+
+    private ExternalOperationResult safelyInvoke(Supplier<ExternalOperationResult> externalCall, String failurePrefix) {
+        try {
+            return externalCall.get();
+        } catch (Exception ex) {
+            return new ExternalOperationResult(false, null, failurePrefix + ": " + ex.getMessage());
+        }
     }
 
     private Transaction persist(PaymentType paymentType,
