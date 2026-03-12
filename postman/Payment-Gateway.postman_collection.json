@@ -1,0 +1,145 @@
+{
+  "info": {
+    "name": "Payment Gateway",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8080"},
+    {"key": "phoneA", "value": "9999999999"},
+    {"key": "phoneB", "value": "8888888888"},
+    {"key": "phoneC", "value": "7777777777"},
+    {"key": "lastTransactionId", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "Happy Flows",
+      "item": [
+        {
+          "name": "Add Money",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"phone\": \"{{phoneA}}\",\n  \"amount\": 5000\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/wallet/add-money", "host": ["{{baseUrl}}"], "path": ["api", "v1", "wallet", "add-money"]}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('status 200', function(){ pm.response.to.have.status(200); });", "pm.test('success true', function(){ pm.expect(pm.response.json().success).to.eql(true); });"]}}]
+        },
+        {
+          "name": "Send Money",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"fromPhone\": \"{{phoneA}}\",\n  \"toPhone\": \"{{phoneB}}\",\n  \"amount\": 250\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/send-money", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "send-money"]}
+          }
+        },
+        {
+          "name": "Receive Money",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"fromPhone\": \"{{phoneA}}\",\n  \"toPhone\": \"{{phoneC}}\",\n  \"amount\": 150\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/receive-money", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "receive-money"]}
+          }
+        },
+        {
+          "name": "Pay Merchant",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"fromPhone\": \"{{phoneA}}\",\n  \"merchantId\": \"shop-100\",\n  \"amount\": 100\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/merchant", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "merchant"]}
+          },
+          "event": [{"listen": "test", "script": {"exec": ["var json = pm.response.json();", "pm.collectionVariables.set('lastTransactionId', json.data.id);"]}}]
+        },
+        {
+          "name": "Pay Electricity Bill",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"fromPhone\": \"{{phoneA}}\",\n  \"provider\": \"STATE-ELECTRIC\",\n  \"consumerNumber\": \"C-1001\",\n  \"amount\": 120\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/electricity-bill", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "electricity-bill"]}
+          }
+        },
+        {
+          "name": "Recharge",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"fromPhone\": \"{{phoneA}}\",\n  \"mobileNumber\": \"7000000000\",\n  \"operatorName\": \"AIRTEL\",\n  \"amount\": 99\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/recharge", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "recharge"]}
+          }
+        },
+        {
+          "name": "Get Transaction",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "GET",
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/transactions/{{lastTransactionId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "transactions", "{{lastTransactionId}}"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fallback Flows",
+      "item": [
+        {
+          "name": "Merchant Fallback and Compensation",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"fromPhone\": \"{{phoneA}}\",\n  \"merchantId\": \"FAIL-MERCHANT\",\n  \"amount\": 100\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/merchant", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "merchant"]}
+          }
+        },
+        {
+          "name": "Biller Fallback and Compensation",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"fromPhone\": \"{{phoneA}}\",\n  \"provider\": \"FAIL-BILLER\",\n  \"consumerNumber\": \"C-1002\",\n  \"amount\": 100\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/electricity-bill", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "electricity-bill"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Validation and Auth",
+      "item": [
+        {
+          "name": "Add Money Invalid Payload",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"phone\": \"\",\n  \"amount\": 0\n}"},
+            "url": {"raw": "{{baseUrl}}/api/v1/wallet/add-money", "host": ["{{baseUrl}}"], "path": ["api", "v1", "wallet", "add-money"]}
+          }
+        },
+        {
+          "name": "Unknown Transaction",
+          "request": {
+            "auth": {"type": "basic", "basic": [{"key": "username", "value": "user", "type": "string"}, {"key": "password", "value": "user123", "type": "string"}]},
+            "method": "GET",
+            "url": {"raw": "{{baseUrl}}/api/v1/payments/transactions/TXN-NOT-FOUND", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "transactions", "TXN-NOT-FOUND"]}
+          }
+        },
+        {
+          "name": "Unauthorized Balance Request",
+          "request": {
+            "method": "GET",
+            "url": {"raw": "{{baseUrl}}/api/v1/wallet/balance/{{phoneA}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "wallet", "balance", "{{phoneA}}"]}
+          }
+        }
+      ]
+    }
+  ]
+}
