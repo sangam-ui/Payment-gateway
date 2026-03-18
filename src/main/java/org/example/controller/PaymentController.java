@@ -2,11 +2,13 @@ package org.example.controller;
 
 import org.example.api.ApiResponse;
 import org.example.api.ErrorCode;
+import org.example.dto.BankTransferRequest;
 import org.example.dto.BillPaymentRequest;
 import org.example.dto.MerchantPaymentRequest;
 import org.example.dto.RechargeRequest;
 import org.example.dto.ReceiveMoneyRequest;
 import org.example.dto.SendMoneyRequest;
+import org.example.dto.UpiTransferRequest;
 import org.example.exception.BusinessException;
 import org.example.model.Transaction;
 import org.example.service.SagaOrchestratorService;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -41,6 +44,22 @@ public class PaymentController {
     public ApiResponse<Transaction> receiveMoney(@Valid @RequestBody ReceiveMoneyRequest request) {
         Transaction transaction = sagaOrchestratorService.receiveMoney(request.getToPhone(), request.getFromPhone(), request.getAmount());
         return ApiResponse.success("Money received", transaction);
+    }
+
+    @PostMapping("/upi-transfer")
+    public ApiResponse<Transaction> transferUpi(@Valid @RequestBody UpiTransferRequest request) {
+        Transaction transaction = sagaOrchestratorService.transferToUpi(request.getFromPhone(), request.getToUpiId(), request.getAmount());
+        return ApiResponse.success("UPI transfer completed", transaction);
+    }
+
+    @PostMapping("/bank-transfer")
+    public ApiResponse<Transaction> transferBank(@Valid @RequestBody BankTransferRequest request) {
+        Transaction transaction = sagaOrchestratorService.transferToBank(
+                request.getFromPhone(),
+                request.getBeneficiaryBankAccountId(),
+                request.getAmount()
+        );
+        return ApiResponse.success("Bank transfer completed", transaction);
     }
 
     @PostMapping("/merchant")
@@ -78,5 +97,10 @@ public class PaymentController {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Transaction not found");
         }
         return ApiResponse.success("Transaction fetched", transaction);
+    }
+
+    @GetMapping("/history/{phone}")
+    public ApiResponse<List<Transaction>> transactionHistory(@PathVariable("phone") String phone) {
+        return ApiResponse.success("Transaction history fetched", sagaOrchestratorService.getTransactionsByPhone(phone));
     }
 }

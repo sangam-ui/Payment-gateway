@@ -4,16 +4,23 @@ This implementation provides a 3-service style payment gateway with:
 - Saga orchestration for payment flows
 - Circuit breaker fallback for external calls
 - Spring Security basic auth
+- OTP-based 2-factor authentication (mandatory)
 - Global exception handling with error codes
 - Generic API response model (`ApiResponse<T>`)
 - MySQL persistence for wallets, transactions, and receipts
+- KYC profile onboarding + beneficiary bank account management
+- UPI transfer + bank transfer APIs
 - Optional S3 receipt upload
+
 
 Architecture and planning docs:
 - `docs/PaymentGateway-HLD-LLD.md`
 - `docs/Phase-Wise-Roadmap.md`
 - `docs/Coding-Standards.md`
 - `docs/Complexity-Notes.md`
+- `docs/PaymentGateway-Run-Manual.md`
+
+Complete step-by-step run + test flow:
 - `docs/PaymentGateway-Run-Manual.md`
 
 ## Runtime DB (MySQL)
@@ -41,12 +48,28 @@ Tests run with H2 test profile (`src/test/resources/application-test.yml`), so M
 mvn test
 ```
 
+Focused regression suites:
+
+```powershell
+mvn -Dtest=ApiIntegrationTest,SagaOrchestratorServiceTest,OtpAuthServiceTest,S3ReceiptStorageServiceTest test
+```
+
 JaCoCo HTML report:
 - `target/site/jacoco/index.html`
 
 ## Auth (Basic)
 - `user:user123`
 - `admin:admin123`
+
+## 2FA (OTP + session token)
+Business APIs under `/api/v1/**` now require two factors:
+1. Basic auth credentials
+2. `X-Session-Token` header from OTP verification
+
+Flow:
+1. `POST /api/v1/auth/otp/request` (with basic auth)
+2. `POST /api/v1/auth/otp/verify` (with basic auth)
+3. Use returned `sessionToken` as `X-Session-Token` for protected APIs
 
 ## API test coverage
 - Unit/service tests: `src/test/java/org/example/service/SagaOrchestratorServiceTest.java`
@@ -76,6 +99,14 @@ Import the collection and environment, then run requests in order for best flow 
    - `POST /api/v1/payments/electricity-bill`
 6. Recharge
    - `POST /api/v1/payments/recharge`
+7. Submit KYC
+   - `POST /api/v1/profile/kyc`
+8. Add bank
+   - `POST /api/v1/profile/banks`
+9. UPI transfer
+   - `POST /api/v1/payments/upi-transfer`
+10. Bank transfer
+   - `POST /api/v1/payments/bank-transfer`
 
 Use `merchantId` or `provider` containing `FAIL` to validate fallback + Saga compensation.
 
