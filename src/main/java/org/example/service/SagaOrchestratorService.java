@@ -1,5 +1,6 @@
 package org.example.service;
 
+import org.example.dto.BankAccountResponse;
 import org.example.model.PaymentType;
 import org.example.model.Transaction;
 import org.example.model.TransactionEntity;
@@ -10,8 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 @Service
 public class SagaOrchestratorService {
@@ -21,17 +24,20 @@ public class SagaOrchestratorService {
     private final BillerService billerService;
     private final ReceiptStorageService receiptStorageService;
     private final TransactionRepository transactionRepository;
+    private final CustomerProfileService customerProfileService;
 
     public SagaOrchestratorService(WalletService walletService,
                                    MerchantService merchantService,
                                    BillerService billerService,
                                    ReceiptStorageService receiptStorageService,
-                                   TransactionRepository transactionRepository) {
+                                   TransactionRepository transactionRepository,
+                                   CustomerProfileService customerProfileService) {
         this.walletService = walletService;
         this.merchantService = merchantService;
         this.billerService = billerService;
         this.receiptStorageService = receiptStorageService;
         this.transactionRepository = transactionRepository;
+        this.customerProfileService = customerProfileService;
     }
 
     @Transactional
@@ -52,6 +58,29 @@ public class SagaOrchestratorService {
         walletService.debit(fromPhone, amount);
         walletService.credit(toPhone, amount);
         return persist(PaymentType.RECEIVE_MONEY, TransactionStatus.SUCCESS, amount, fromPhone, toPhone, "Money received successfully", null);
+    }
+
+    @Transactional
+    public Transaction transferToUpi(String fromPhone, String toUpiId, BigDecimal amount) {
+        customerProfileService.ensureKycVerified(fromPhone);
+        walletService.debit(fromPhone, amount);
+        return persist(PaymentType.UPI_TRANSFER, TransactionStatus.SUCCESS, amount, fromPhone, toUpiId, "UPI transfer successful", null);
+    }
+
+    @Transactional
+    public Transaction transferToBank(String fromPhone, Long beneficiaryBankAccountId, BigDecimal amount) {
+        customerProfileService.ensureKycVerified(fromPhone);
+        BankAccountResponse beneficiary = customerProfileService.getBankAccount(fromPhone, beneficiaryBankAccountId);
+        walletService.debit(fromPhone, amount);
+        return persist(
+                PaymentType.BANK_TRANSFER,
+                TransactionStatus.SUCCESS,
+                amount,
+                fromPhone,
+                beneficiary.getBankName() + "-" + beneficiary.getAccountMasked(),
+                "Bank transfer successful",
+                null
+        );
     }
 
     @Transactional
@@ -95,6 +124,14 @@ public class SagaOrchestratorService {
         return transactionRepository.findById(transactionId)
                 .map(this::toDomain)
                 .orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Transaction> getTransactionsByPhone(String phone) {
+        return transactionRepository.findBySourcePhoneOrderByCreatedAtDesc(phone)
+                .stream()
+                .map(this::toDomain)
+                .collect(Collectors.toList());
     }
 
     private Transaction processExternalFlow(PaymentType paymentType,

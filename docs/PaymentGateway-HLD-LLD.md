@@ -5,13 +5,17 @@ A wallet-first payment gateway where users can:
 - add money
 - send money to phone number (Paytm-style)
 - receive money
+- complete KYC profile onboarding
+- add beneficiary bank details
+- transfer to UPI ID
+- transfer to bank account
 - pay merchants
 - pay electricity bills
 - recharge mobile numbers
 
 Design stack and constraints:
 - Java 8 + Spring Boot REST
-- Spring Security (basic auth)
+- Spring Security (basic auth + OTP-based 2FA)
 - Saga orchestration + Circuit Breaker resilience
 - generic API responses + global exception handling
 - MySQL for persistent storage (wallets, transactions, receipts)
@@ -49,18 +53,21 @@ For merchant/bill/recharge flows:
 - **Controller layer**
   - `WalletController`
   - `PaymentController`
+  - `ProfileController`
 - **DTO layer**
   - `AddMoneyRequest`, `SendMoneyRequest`, `ReceiveMoneyRequest`
   - `MerchantPaymentRequest`, `BillPaymentRequest`, `RechargeRequest`
+  - `KycRequest`, `BankAccountRequest`, `UpiTransferRequest`, `BankTransferRequest`
 - **Domain layer**
   - `Transaction`, `PaymentType`, `TransactionStatus`
+  - `KycStatus`
 - **Persistence layer (MySQL)**
-  - Entities: `WalletEntity`, `TransactionEntity`, `ReceiptEntity`
-  - Repositories: `WalletRepository`, `TransactionRepository`, `ReceiptRepository`
+  - Entities: `WalletEntity`, `TransactionEntity`, `ReceiptEntity`, `KycProfileEntity`, `BankAccountEntity`
+  - Repositories: `WalletRepository`, `TransactionRepository`, `ReceiptRepository`, `KycProfileRepository`, `BankAccountRepository`
 - **Cross-cutting**
   - Generic response: `ApiResponse<T>`
   - Global errors: `GlobalExceptionHandler`
-  - Security: `SecurityConfig`
+  - Security: `SecurityConfig`, `TwoFactorSessionFilter`, `OtpAuthService`, `AuthController`
 
 ## 5) DB Connectivity and Tables
 Default runtime datasource (`application.yml`):
@@ -74,6 +81,8 @@ Key tables:
 - `wallets` (`phone` PK, `balance`, `version`)
 - `transactions` (`id` PK, `type`, `status`, `amount`, `source_phone`, `target_reference`, `message`, `receipt_key`, `created_at`)
 - `receipts` (`key` PK, `content`, `created_at`)
+- `kyc_profiles` (`phone` PK, `full_name`, `email`, `pan_last4`, `status`)
+- `bank_accounts` (`id` PK, `phone`, `account_holder`, `bank_name`, `account_last4`, `ifsc_code`, `upi_id`)
 
 ## 6) REST API Contract (Postman)
 - `POST /api/v1/wallet/add-money`
@@ -84,6 +93,13 @@ Key tables:
 - `POST /api/v1/payments/electricity-bill`
 - `POST /api/v1/payments/recharge`
 - `GET /api/v1/payments/transactions/{transactionId}`
+- `GET /api/v1/payments/history/{phone}`
+- `POST /api/v1/profile/kyc`
+- `GET /api/v1/profile/{phone}/kyc`
+- `POST /api/v1/profile/banks`
+- `GET /api/v1/profile/{phone}/banks`
+- `POST /api/v1/payments/upi-transfer`
+- `POST /api/v1/payments/bank-transfer`
 
 Auth users for Postman:
 - `user / user123`
